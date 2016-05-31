@@ -23,7 +23,36 @@ public lostanza defn free-id (id:int) -> ref<False> :
 
 public lostanza defn obj (id:int) -> ref<?> :
    return get(OBJ-MAP, new Int{id})
-   
+
+;============================================================   
+;=================== QtWidget ===============================
+;============================================================
+extern QtWidget_new: (ptr<?>) -> ptr<?>
+extern QtWidget_delete: (ptr<?>) -> int
+extern QtWidget_show: (ptr<?>) -> int
+extern QtWidget_set_width: (ptr<?>, int) -> int
+extern QtWidget_set_height: (ptr<?>, int) -> int
+extern QtWidget_set_listener: (ptr<?>, int) -> int
+
+extern defn QtWidget_paintEvent (listener:int, event:ptr<?>) -> int :
+   call-c clib/printf("PaintEvent\n")
+   return 0
+
+extern defn QtWidget_mousePressEvent (listener:int, event:ptr<?>) -> int :
+   call-c clib/printf("MousePressEvent\n")
+   return 0
+
+extern defn QtWidget_mouseReleaseEvent (listener:int, event:ptr<?>) -> int :
+   call-c clib/printf("MouseReleaseEvent\n")
+   return 0
+
+extern defn QtWidget_mouseMoveEvent (listener:int, event:ptr<?>) -> int :
+   call-c clib/printf("MouseMoveEvent\n")
+   return 0
+
+extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
+   call-c clib/printf("KeyPressEvent\n")
+   return 0
 
 ;============================================================
 ;================= Scratch ==================================
@@ -34,9 +63,7 @@ extern input_argv: ptr<ptr<byte>>
 extern QApplication_new: (int, ptr<ptr<byte>>) -> ptr<?>
 extern QApplication_delete: (ptr<?>) -> int
 extern QApplication_exec: (ptr<?>) -> int
-extern QtWidget_new: (ptr<?>) -> ptr<?>
-extern QtWidget_delete: (ptr<?>) -> int
-extern QtWidget_show: (ptr<?>) -> int
+
 
 println("Calling mymain")
 lostanza :

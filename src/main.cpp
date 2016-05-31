@@ -48,12 +48,12 @@ int mymain(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    QSurfaceFormat fmt;
-    fmt.setSamples(4);
-    QSurfaceFormat::setDefaultFormat(fmt);
-
-    Window window;
-    window.show();
+    //QSurfaceFormat fmt;
+    //fmt.setSamples(4);
+    //QSurfaceFormat::setDefaultFormat(fmt);
+    //
+    //Window window;
+    //window.show();
     return app.exec();
 }
 }
