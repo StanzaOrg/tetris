@@ -1,0 +1,51 @@
+defpackage tetris :
+   import core
+   import collections
+
+;============================================================
+;================== Id Pool =================================
+;============================================================
+
+val ID-SEQ = to-seq(0 to false)
+val FREE-IDS = Vector<Int>()
+val OBJ-MAP = Vector<?>()
+public lostanza defn obj-id (x:ref<?>) -> int :
+   var id:ref<Int>
+   if empty?(FREE-IDS) == true : id = next(ID-SEQ)
+   else : id = pop(FREE-IDS)
+   set(OBJ-MAP, id, x)
+   return id.value
+
+public lostanza defn free-id (id:int) -> ref<False> :
+   add(FREE-IDS, new Int{id})
+   set(OBJ-MAP, new Int{id}, false)
+   return false
+
+public lostanza defn obj (id:int) -> ref<?> :
+   return get(OBJ-MAP, new Int{id})
+   
+
+;============================================================
+;================= Scratch ==================================
+;============================================================
+
+extern input_argc: long
+extern input_argv: ptr<ptr<byte>>
+extern QApplication_new: (int, ptr<ptr<byte>>) -> ptr<?>
+extern QApplication_delete: (ptr<?>) -> int
+extern QApplication_exec: (ptr<?>) -> int
+extern QtWidget_new: (ptr<?>) -> ptr<?>
+extern QtWidget_delete: (ptr<?>) -> int
+extern QtWidget_show: (ptr<?>) -> int
+
+println("Calling mymain")
+lostanza :
+   val app = call-c QApplication_new(input_argc as int, input_argv)
+
+   val widget = call-c QtWidget_new(0L as ptr<?>)
+   call-c QtWidget_show(widget)
+   
+   call-c QApplication_exec(app)
+println("Done")
+
+
