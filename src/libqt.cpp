@@ -29,9 +29,11 @@ void StzQtWidget::paintEvent(QPaintEvent* event){
 void StzQtWidget::mousePressEvent(QMouseEvent* event){
   QtWidget_mousePressEvent(listener, event);
 }
+
 void StzQtWidget::mouseReleaseEvent(QMouseEvent* event){
   QtWidget_mouseReleaseEvent(listener, event);
 }
+
 void StzQtWidget::mouseMoveEvent(QMouseEvent* event){
   QtWidget_mouseMoveEvent(listener, event);
 }

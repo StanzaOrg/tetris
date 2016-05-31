@@ -27,6 +27,7 @@ public lostanza defn obj (id:int) -> ref<?> :
 ;============================================================   
 ;=================== QtWidget ===============================
 ;============================================================
+
 extern QtWidget_new: (ptr<?>) -> ptr<?>
 extern QtWidget_delete: (ptr<?>) -> int
 extern QtWidget_show: (ptr<?>) -> int
@@ -35,24 +36,42 @@ extern QtWidget_set_height: (ptr<?>, int) -> int
 extern QtWidget_set_listener: (ptr<?>, int) -> int
 
 extern defn QtWidget_paintEvent (listener:int, event:ptr<?>) -> int :
-   call-c clib/printf("PaintEvent\n")
+   if listener >= 0 :
+      painted(obj(listener) as ref<QtWidgetListener>)
    return 0
 
 extern defn QtWidget_mousePressEvent (listener:int, event:ptr<?>) -> int :
-   call-c clib/printf("MousePressEvent\n")
+   if listener >= 0 :
+      mouse-pressed(obj(listener) as ref<QtWidgetListener>)
    return 0
 
 extern defn QtWidget_mouseReleaseEvent (listener:int, event:ptr<?>) -> int :
-   call-c clib/printf("MouseReleaseEvent\n")
+   if listener >= 0 :
+      mouse-released(obj(listener) as ref<QtWidgetListener>)
    return 0
 
 extern defn QtWidget_mouseMoveEvent (listener:int, event:ptr<?>) -> int :
-   call-c clib/printf("MouseMoveEvent\n")
+   if listener >= 0 :
+      mouse-moved(obj(listener) as ref<QtWidgetListener>)
    return 0
 
 extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
-   call-c clib/printf("KeyPressEvent\n")
+   if listener >= 0 :
+      key-pressed(obj(listener) as ref<QtWidgetListener>)
    return 0
+
+deftype QtWidgetListener
+defmulti painted (l:QtWidgetListener) -> False
+defmulti mouse-pressed (l:QtWidgetListener) -> False
+defmulti mouse-released (l:QtWidgetListener) -> False
+defmulti mouse-moved (l:QtWidgetListener) -> False
+defmulti key-pressed (l:QtWidgetListener) -> False
+
+defmethod painted (l:QtWidgetListener) : false
+defmethod mouse-pressed (l:QtWidgetListener) : false
+defmethod mouse-released (l:QtWidgetListener) : false
+defmethod mouse-moved (l:QtWidgetListener) : false
+defmethod key-pressed (l:QtWidgetListener) : false
 
 ;============================================================
 ;================= Scratch ==================================
@@ -64,12 +83,19 @@ extern QApplication_new: (int, ptr<ptr<byte>>) -> ptr<?>
 extern QApplication_delete: (ptr<?>) -> int
 extern QApplication_exec: (ptr<?>) -> int
 
+defn my-listener () :
+   new QtWidgetListener :
+      defmethod mouse-pressed (this) :
+         println("Mouse pressed")
+      defmethod mouse-moved (this) :
+         println("Mouse moved")        
 
 println("Calling mymain")
 lostanza :
    val app = call-c QApplication_new(input_argc as int, input_argv)
 
    val widget = call-c QtWidget_new(0L as ptr<?>)
+   call-c QtWidget_set_listener(widget, obj-id(my-listener()))
    call-c QtWidget_show(widget)
    
    call-c QApplication_exec(app)
