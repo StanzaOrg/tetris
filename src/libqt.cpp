@@ -1,5 +1,7 @@
 #include<QApplication>
 #include<QWidget>
+#include<QMouseEvent>
+#include<QKeyEvent>
 #include "libqt.h"
 
 //============================================================
@@ -42,6 +44,15 @@ void StzQtWidget::keyPressEvent(QKeyEvent *event){
   QtWidget_keyPressEvent(listener, event);
 }
 
+extern "C" {
+  StzQtWidget* QtWidget_new (QWidget* parent) {return new StzQtWidget(parent);}
+  void QtWidget_delete (StzQtWidget* x){delete x;}
+  void QtWidget_show (StzQtWidget* x){x->show();}
+  void QtWidget_set_width (StzQtWidget* x, int width){x->width = width;}
+  void QtWidget_set_height (StzQtWidget* x, int height){x->width = height;}
+  void QtWidget_set_listener (StzQtWidget* x, int listener){x->listener = listener;}
+}
+
 //============================================================
 //=================== C Bindings =============================
 //============================================================
@@ -51,10 +62,8 @@ extern "C" {
   void QApplication_delete (QApplication* x){delete x;}
   int QApplication_exec (QApplication* x){return x->exec();}
 
-  StzQtWidget* QtWidget_new (QWidget* parent) {return new StzQtWidget(parent);}
-  void QtWidget_delete (StzQtWidget* x){delete x;}
-  void QtWidget_show (StzQtWidget* x){x->show();}
-  void QtWidget_set_width (StzQtWidget* x, int width){x->width = width;}
-  void QtWidget_set_height (StzQtWidget* x, int height){x->width = height;}
-  void QtWidget_set_listener (StzQtWidget* x, int listener){x->listener = listener;}
+  int QMouseEvent_x (QMouseEvent* e){return e->x();}
+  int QMouseEvent_y (QMouseEvent* e){return e->y();}
+
+  int QKeyEvent_key (QKeyEvent* e){return e->key();}
 }
