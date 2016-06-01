@@ -35,46 +35,71 @@ extern QtWidget_set_width: (ptr<?>, int) -> int
 extern QtWidget_set_height: (ptr<?>, int) -> int
 extern QtWidget_set_listener: (ptr<?>, int) -> int
 
+lostanza deftype QWidget :
+   value: ptr<?>
+
+lostanza defn QWidget (parent:ref<QWidget>) -> ref<QWidget> :
+   return new QWidget{call-c QtWidget_new(parent.value)}
+
+lostanza defn QWidget () -> ref<QWidget> :
+   return new QWidget{call-c QtWidget_new(0L as ptr<?>)}
+
+lostanza defn set-width (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
+   call-c QtWidget_set_width(w.value, x.value)
+   return false
+
+lostanza defn set-height (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
+   call-c QtWidget_set_height(w.value, x.value)
+   return false
+
+lostanza defn set-listener (w:ref<QWidget>, x:ref<QWidgetListener>) -> ref<False> :
+   call-c QtWidget_set_listener(w.value, obj-id(x))
+   return false
+
+lostanza defn show (w:ref<QWidget>) -> ref<False> :
+   call-c QtWidget_show(w.value)
+   return false
+
 extern defn QtWidget_paintEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      painted(obj(listener) as ref<QtWidgetListener>)
+      painted(obj(listener) as ref<QWidgetListener>)
    return 0
 
 extern defn QtWidget_mousePressEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-pressed(obj(listener) as ref<QtWidgetListener>, new QMouseEvent{event})
+      mouse-pressed(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_mouseReleaseEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-released(obj(listener) as ref<QtWidgetListener>, new QMouseEvent{event})
+      mouse-released(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_mouseMoveEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-moved(obj(listener) as ref<QtWidgetListener>, new QMouseEvent{event})
+      mouse-moved(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      key-pressed(obj(listener) as ref<QtWidgetListener>, new QKeyEvent{event})
+      key-pressed(obj(listener) as ref<QWidgetListener>, new QKeyEvent{event})
    return 0
 
-deftype QtWidgetListener
-defmulti painted (l:QtWidgetListener) -> False
-defmulti mouse-pressed (l:QtWidgetListener, e:QMouseEvent) -> False
-defmulti mouse-released (l:QtWidgetListener, e:QMouseEvent) -> False
-defmulti mouse-moved (l:QtWidgetListener, e:QMouseEvent) -> False
-defmulti key-pressed (l:QtWidgetListener, e:QKeyEvent) -> False
+deftype QWidgetListener
+defmulti painted (l:QWidgetListener) -> False
+defmulti mouse-pressed (l:QWidgetListener, e:QMouseEvent) -> False
+defmulti mouse-released (l:QWidgetListener, e:QMouseEvent) -> False
+defmulti mouse-moved (l:QWidgetListener, e:QMouseEvent) -> False
+defmulti key-pressed (l:QWidgetListener, e:QKeyEvent) -> False
 
-defmethod painted (l:QtWidgetListener) : false
-defmethod mouse-pressed (l:QtWidgetListener, e:QMouseEvent) : false
-defmethod mouse-released (l:QtWidgetListener, e:QMouseEvent) : false
-defmethod mouse-moved (l:QtWidgetListener, e:QMouseEvent) : false
-defmethod key-pressed (l:QtWidgetListener, e:QKeyEvent) : false
+defmethod painted (l:QWidgetListener) : false
+defmethod mouse-pressed (l:QWidgetListener, e:QMouseEvent) : false
+defmethod mouse-released (l:QWidgetListener, e:QMouseEvent) : false
+defmethod mouse-moved (l:QWidgetListener, e:QMouseEvent) : false
+defmethod key-pressed (l:QWidgetListener, e:QKeyEvent) : false
 
 ;============================================================
-;================== QMouseEvent =============================
+;===================== QMouseEvent ==========================
 ;============================================================
 
 extern QMouseEvent_x: (ptr<?>) -> int
@@ -102,7 +127,79 @@ lostanza defn key (e:ref<QKeyEvent>) -> ref<Int> :
    return new Int{call-c QKeyEvent_key(e.event)}
 
 ;============================================================
-;================= Scratch ==================================
+;==================== QBrush ================================
+;============================================================
+
+extern QBrush_new : () -> ptr<?>
+extern QBrush_new_c : (ptr<?>) -> ptr<?>
+extern QBrush_delete : (ptr<?>) -> int
+
+lostanza deftype QBrush :
+   value:ptr<?>
+
+lostanza defn QBrush () -> ref<QBrush> :
+   return new QBrush{call-c QBrush_new()}
+
+lostanza defn QBrush (c:ref<QColor>) -> ref<QBrush> :
+   return new QBrush{call-c QBrush_new_c(c.value)}
+   
+;TODO Add destructor
+
+;============================================================
+;===================== QColor ===============================
+;============================================================
+
+extern QColor_new : (int, int, int, int) -> ptr<?>
+extern QColor_delete : (ptr<?>) -> int
+
+lostanza deftype QColor :
+   value:ptr<?>
+
+lostanza defn QColor (r:ref<Int>, g:ref<Int>, b:ref<Int>, a:ref<Int>) -> ref<QColor> :
+   return new QColor{call-c QColor_new(r.value, g.value, b.value, a.value)}
+
+;TODO add destructor
+
+;============================================================
+;===================== QPixmap ==============================
+;============================================================
+
+extern QPixmap_load : (ptr<byte>) -> ptr<?>
+extern QPixmap_delete : (ptr<?>) -> int
+extern QPixmap_width : (ptr<?>) -> int
+extern QPixmap_height : (ptr<?>) -> int
+
+lostanza deftype QPixmap :
+   value:ptr<?>
+
+lostanza defn QPixmap (filepath:ref<String>) -> ref<QPixmap> :
+   return new QPixmap{call-c QPixmap_load(addr!(filepath.chars))}
+
+lostanza defn width (p:ref<QPixmap>) -> ref<Int> :
+   return new Int{call-c QPixmap_width(p.value)}
+   
+lostanza defn height (p:ref<QPixmap>) -> ref<Int> :
+   return new Int{call-c QPixmap_height(p.value)}
+
+;TODO add destructor
+
+;============================================================
+;===================== QPen =================================
+;============================================================
+
+extern QPen_new : (ptr<?>, int) -> ptr<?>
+extern QPen_delete : (ptr<?>) -> int
+
+lostanza deftype QPen :
+   value:ptr<?>
+
+lostanza defn QPen (c:ref<QColor>, thickness:ref<Int>) -> ref<QPen> :
+   return new QPen{call-c QPen_new(c.value, thickness.value)}
+
+;TOOD add destructor
+
+;============================================================
+;================= QApplication =============================
 ;============================================================
 
 extern input_argc: long
@@ -111,8 +208,26 @@ extern QApplication_new: (int, ptr<ptr<byte>>) -> ptr<?>
 extern QApplication_delete: (ptr<?>) -> int
 extern QApplication_exec: (ptr<?>) -> int
 
+lostanza deftype QApplication :
+   value: ptr<?>
+
+lostanza defn QApplication () -> ref<QApplication> :
+   return new QApplication{call-c QApplication_new(input_argc as int, input_argv)}
+
+lostanza defn exec (a:ref<QApplication>) -> ref<False> :
+   call-c QApplication_exec(a.value)
+   return false
+
+;TODO add destructor
+
+;============================================================
+;================= Scratch ==================================
+;============================================================
+
+
+
 defn my-listener () :
-   new QtWidgetListener :
+   new QWidgetListener :
       defmethod mouse-pressed (this, e:QMouseEvent) :
          println("Mouse pressed")
       defmethod mouse-moved (this, e:QMouseEvent) :
@@ -120,15 +235,15 @@ defn my-listener () :
       defmethod key-pressed (this, e:QKeyEvent) :
          println("Key pressed %_" % [key(e)])
 
-println("Calling mymain")
-lostanza :
-   val app = call-c QApplication_new(input_argc as int, input_argv)
+defn main () :   
+   println("Calling mymain")
+   val app = QApplication()
+   val widget = QWidget()
+   set-listener(widget, my-listener())
+   show(widget)
+   exec(app)
+   println("Done")
 
-   val widget = call-c QtWidget_new(0L as ptr<?>)
-   call-c QtWidget_set_listener(widget, obj-id(my-listener()))
-   call-c QtWidget_show(widget)
-   
-   call-c QApplication_exec(app)
-println("Done")
+main()
 
 

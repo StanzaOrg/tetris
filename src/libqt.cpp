@@ -2,6 +2,9 @@
 #include<QWidget>
 #include<QMouseEvent>
 #include<QKeyEvent>
+#include<QPainter>
+#include<QBrush>
+#include<QPen>
 #include "libqt.h"
 
 //============================================================
@@ -66,4 +69,33 @@ extern "C" {
   int QMouseEvent_y (QMouseEvent* e){return e->y();}
 
   int QKeyEvent_key (QKeyEvent* e){return e->key();}
+
+  QPainter* QPainter_new (QWidget* widget){return new QPainter(widget);}
+  void QPainter_set_pen (QPainter* p, QPen* pen){p->setPen(*pen);}
+  void QPainter_set_brush (QPainter* p, QBrush* brush){p->setBrush(*brush);}
+  void QPainter_delete (QPainter* p){delete p;}
+  void QPainter_set_opacity (QPainter* p, float opacity){p->setOpacity(opacity);}
+  void QPainter_draw_line (QPainter* p, int x, int y, int x2, int y2){p->drawLine(x, y, x2, y2);}
+  void QPainter_draw_rect (QPainter* p, int x, int y, int width, int height){p->drawRect(x, y, width, height);}
+  void QPainter_draw_pixmap (QPainter* p, int x, int y, int width, int height, QPixmap* pixmap){p->drawPixmap(x, y, width, height, *pixmap);}
+
+  QBrush* QBrush_new (){return new QBrush();}
+  QBrush* QBrush_new_c (QColor* c){return new QBrush(*c);}
+  void QBrush_delete (QBrush* b){delete b;}
+  
+  QColor* QColor_new (int r, int g, int b, int a){return new QColor(r, g, b, a);}
+  void QColor_delete (QColor* c){delete c;}
+
+  QPixmap* QPixmap_load (char* filepath){
+    QPixmap* pixmap = new QPixmap();
+    int r = pixmap->load(filepath);
+    if(r) return pixmap;
+    else return 0;
+  }
+  void QPixmap_delete (QPixmap* p){delete p;}
+  int QPixmap_width (QPixmap* p){return p->width();}
+  int QPixmap_height (QPixmap* p){return p->height();}
+
+  QPen* QPen_new (QColor* c, int thickness){return new QPen(*c, thickness, Qt::SolidLine);}
+  void QPen_delete (QPen* p){delete p;}
 }
