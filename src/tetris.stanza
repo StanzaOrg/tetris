@@ -184,6 +184,51 @@ lostanza defn height (p:ref<QPixmap>) -> ref<Int> :
 ;TODO add destructor
 
 ;============================================================
+;==================== QPainter ==============================
+;============================================================
+extern QPainter_new : (ptr<?>) -> ptr<?>
+extern QPainter_set_pen: (ptr<?>, ptr<?>) -> int
+extern QPainter_set_brush: (ptr<?>, ptr<?>) -> int
+extern QPainter_delete: () -> int
+extern QPainter_set_opacity: (ptr<?>, float) -> int
+extern QPainter_draw_line: (ptr<?>, int, int, int, int) -> int
+extern QPainter_draw_rect: (ptr<?>, int, int, int, int) -> int
+extern QPainter_draw_pixmap: (ptr<?>, int, int, int, int, ptr<?>) -> int
+
+lostanza deftype QPainter :
+   value:ptr<?>
+   
+lostanza defn QPainter (w:ref<QWidget>) -> ref<QPainter> :
+   return new QPainter{call-c QPainter_new(w.value)}
+   
+lostanza defn set-pen (w:ref<QPainter>, p:ref<QPen>) -> ref<False> :
+   call-c QPainter_set_pen(w.value, p.value)
+   return false
+
+lostanza defn set-brush (w:ref<QPainter>, b:ref<QBrush>) -> ref<False> :
+   call-c QPainter_set_brush(w.value, b.value)
+   return false
+
+lostanza defn set-opacity (w:ref<QPainter>, o:ref<Float>) -> ref<False> :
+   call-c QPainter_set_opacity(w.value, o.value)
+   return false
+
+lostanza defn draw-line (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, x2:ref<Int>, y2:ref<Int>) -> ref<False> :
+   call-c QPainter_draw_line(w.value, x.value, y.value, x2.value, y2.value)
+   return false
+
+lostanza defn draw-rect (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, width:ref<Int>, height:ref<Int>) -> ref<False> :
+   call-c QPainter_draw_rect(w.value, x.value, y.value, width.value, height.value)
+   return false
+
+lostanza defn draw-pixmap (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, width:ref<Int>, height:ref<Int>, pixmap:ref<QPixmap>) -> ref<False> :
+   call-c QPainter_draw_pixmap(w.value, x.value, y.value, width.value, height.value, pixmap.value)
+   return false
+
+;TODO add destructor
+
+
+;============================================================
 ;===================== QPen =================================
 ;============================================================
 
@@ -239,6 +284,11 @@ defn main () :
    println("Calling mymain")
    val app = QApplication()
    val widget = QWidget()
+   val painter = QPainter(widget)
+   val red = QColor(255, 0, 0, 255)
+   set-brush(painter, QBrush(red))
+   draw-rect(painter, 0, 0, 50, 50)
+
    set-listener(widget, my-listener())
    show(widget)
    exec(app)
