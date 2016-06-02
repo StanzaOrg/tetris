@@ -4,27 +4,231 @@ defpackage tetris :
    import qt5
 
 ;============================================================
+;====================== Tile ================================
+;============================================================
+
+deftype Tile
+defmulti cols (t:Tile) -> Int
+defmulti rows (t:Tile) -> Int
+defmulti dots (t:Tile) -> Collection<[Int, Int, Int]>
+
+defn Tile (cols:Int, rows:Int, dots:Seqable<False|Int>) :
+   val dot-seq = to-seq(dots)
+   val dot-tuple = to-tuple $
+      for r in (rows - 1) through 0 by -1 seq-cat :
+         for c in 0 to cols seq? :
+            match(next(dot-seq)) :
+               (dot:Int) : One([r, c, dot])
+               (dot:False) : None()
+   new Tile :
+      defmethod cols (this) : cols
+      defmethod rows (this) : rows
+      defmethod dots (this) : dot-tuple
+
+defn rotate (t:Tile) :
+   new Tile :
+      defmethod cols (this) : rows(t)
+      defmethod rows (this) : cols(t)
+      defmethod dots (this) :
+         new Collection<[Int, Int, Int]> :
+            defmethod to-seq (this) :
+               for [r, c, color] in dots(t) seq :
+                  [c, rows(t) - r - 1, color]
+
+val ALL-TILES = let :
+   val _ = false
+   [
+      ;I Tile
+      Tile(4, 4,
+         [_ _ 0 _
+          _ _ 0 _
+          _ _ 0 _
+          _ _ 0 _])
+
+      ;J Tile
+      Tile(3, 3,
+         [_ 1 _
+          _ 1 _
+          1 1 _])
+
+      ;L Tile
+      Tile(3, 3,
+         [_ 2 _
+          _ 2 _
+          _ 2 2])
+
+      ;O Tile
+      Tile(2, 2,
+         [3 3
+          3 3])
+
+      ;S Tile
+      Tile(3, 3,
+         [_ 4 4
+          4 4 _
+          _ _ _])
+
+      ;Z Tile
+      Tile(3, 3,
+         [6 6 _
+          _ 6 6
+          _ _ _])
+
+      ;T Tile
+      Tile(3, 3,
+         [_ 5 _
+          5 5 5
+          _ _ _])
+   ]
+
+defn random-tile () :
+   val n = length(ALL-TILES)
+   ALL-TILES[rand(n)]
+
+;============================================================
+;======================= Board ==============================
+;============================================================
+
+deftype Board
+defmulti rows (b:Board) -> Int
+defmulti cols (b:Board) -> Int
+defmulti get (b:Board, r:Int, c:Int) -> False|Int
+
+defmulti dots (b:Board) -> Collection<[Int, Int, Int]>
+defmulti spawn-tile (b:Board) -> False
+defmulti active-tile (b:Board) -> False|Tile
+defmulti active-tile-pos (b:Board) -> [Int, Int]
+defmulti slide-tile (b:Board, x:Int) -> False|True
+defmulti drop-tile (b:Board) -> False|True
+
+
+defn Board () :
+   ;Board Stats
+   val rows = 25
+   val cols = 10
+   val board = Array<Int|False>(rows * cols, false)
+   defn board-get (r:Int, c:Int) : board[r * cols + c]
+   defn board-set (r:Int, c:Int, color:Int) : board[r * cols + c] = color
+
+   board-set(0, 0, 0)
+   board-set(0, 1, 2)
+   board-set(1, 1, 3)
+
+   ;Tile Stats
+   var tile:False|Tile = false
+   var tile-pos:[Int, Int] = [0, 0]
+
+   ;Stamp a tile at a location
+   defn stamp (t:Tile, r:Int, c:Int) :
+      for [tr, tc, color] in dots(t) do :
+         val dr = r + tr
+         val dc = c + tc
+         fatal("Illegal Stamp") when (not in-bounds?(dr, dc)) or occupied?(dr, dc)
+         board-set(dr, dc, color)   
+
+   ;Does a tile fit in a given location?
+   defn in-bounds? (r:Int, c:Int) :
+      r >= 0 and c >= 0 and r < rows and c < cols
+   defn occupied? (r:Int, c:Int) :
+      board-get(r, c) is Int
+   defn fits? (t:Tile, r:Int, c:Int) :
+      for [tr, tc, _] in dots(t) all? :
+         val dr = r + tr
+         val dc = c + tc
+         in-bounds?(dr, dc) and not occupied?(dr, dc)
+   
+   new Board :
+      defmethod rows (this) : rows
+      defmethod cols (this) : cols
+      defmethod active-tile (this) : tile
+         
+      defmethod active-tile-pos (this) :
+         fatal("No active tile") when tile is False
+         tile-pos
+         
+      defmethod drop-tile (this) :
+         fatal("No active tile") when tile is False
+         false
+
+      defmethod get (this, r:Int, c:Int) -> False|Int :
+         fatal("Out of Bounds") when not in-bounds?(r, c)
+         board-get(r, c)
+
+;============================================================
+;==================== Drawer ================================
+;============================================================
+
+deftype Drawer
+defmulti draw (d:Drawer, b:Board, w:QWidget) -> False
+
+defn vis-rows (b:Board) :
+   rows(b) - 5
+
+defn Drawer () :
+   ;Coordinate system
+   val [bx, by] = [10, 10]
+   val [dx, dy] = [24, 24]
+   defn coord (b:Board, r:Int, c:Int) :
+      val maxy = by + vis-rows(b) * dy
+      [bx + c * dx,
+       maxy - r * dy - dy]
+
+   ;Tile Colored Brushes
+   val colored-brushes = to-tuple{seq(QBrush, _)} $ [
+      QColor(0, 255, 255, 255)
+      QColor(0, 0, 255, 255)
+      QColor(255, 165, 0, 255)
+      QColor(255, 255, 0, 255)
+      QColor(0, 255, 0, 255)
+      QColor(139, 0, 139, 255)
+      QColor(255, 0, 0, 255)]
+
+   ;Colored Pens
+   val white = QColor(255, 255, 255, 255)
+   val gray = QColor(230, 230, 230, 255)
+   val black = QColor(0, 0, 0, 255)
+   val white-pen = QPen(white, 2)
+   val black-pen = QPen(black, 2)
+   val gray-brush = QBrush(gray)
+   new Drawer :
+      defmethod draw (this, b:Board, w:QWidget) :
+         val p = QPainter(w)
+         
+         ;Draw Grid
+         set-pen(p, white-pen)
+         set-brush(p, gray-brush)
+         for r in 0 to vis-rows(b) do :
+            for c in 0 to cols(b) do :
+               val [x, y] = coord(b, r, c)
+               draw-rect(p, x, y, dx, dy)
+               
+         ;Draw tiles
+         set-pen(p, black-pen)         
+         for r in 0 to vis-rows(b) do :
+            for c in 0 to cols(b) do :
+               match(b[r, c]) :
+                  (color:Int) :
+                     val [x, y] = coord(b, r, c)
+                     set-brush(p, colored-brushes[color])
+                     draw-rect(p, x, y, dx, dy)
+                  (color:False) : false
+
+;============================================================
 ;================= Scratch ==================================
 ;============================================================
 
-defn main () :   
-   println("Calling mymain")
+defn main () :
    val app = QApplication()
+   val widget = QWidget()  
+   val drawer = Drawer()
+   val board = Board()
 
-   val timer = QTimer{_, 1000} $ fn () :
-      println("Tick!")
-   start(timer)
-   
-   val widget = QWidget()
-
+   ;Event Handling
    set-listener{widget, _} $
       new QWidgetListener :
          defmethod painted (this) :
             with-resources $ fn () :
-               val painter = QPainter(widget)
-               val red = QColor(255, 0, 0, 255)
-               set-brush(painter, QBrush(red))
-               draw-rect(painter, 0, 0, 50, 50)
+               draw(drawer, board, widget)
          defmethod mouse-pressed (this, e:QMouseEvent) :
             println("Mouse pressed")
          defmethod mouse-moved (this, e:QMouseEvent) :
@@ -32,11 +236,13 @@ defn main () :
          defmethod key-pressed (this, e:QKeyEvent) :
             println("Key pressed %_" % [key(e)])
 
+   ;Set Framerate Timer
+   val timer = QTimer{_, 1000} $ fn () :
+      println("Tick!")
+   start(timer)
 
+   ;Start!
    show(widget)
    exec(app)
-   println("Done")
 
 with-resources(main)
-
-
