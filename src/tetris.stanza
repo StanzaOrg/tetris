@@ -92,6 +92,7 @@ defn random-tile () :
 deftype Board
 defmulti rows (b:Board) -> Int
 defmulti cols (b:Board) -> Int
+defmulti vis-rows (b:Board) -> Int
 defmulti get (b:Board, r:Int, c:Int) -> False|Int
 defmulti active-tile (b:Board) -> False|Tile
 defmulti active-tile-pos (b:Board) -> [Int, Int]
@@ -99,18 +100,24 @@ defmulti spawn-tile (b:Board) -> False
 defmulti rotate-tile (b:Board) -> False|True
 defmulti slide-tile (b:Board, dr:Int, dc:Int) -> False|True
 defmulti stamp-active-tile (b:Board) -> False
+defmulti active-tile-on-ground? (b:Board) -> True|False
+defmulti game-over? (b:Board) -> False|True
 
 defn Board () :
    ;Board Stats
    val num-rows = 25
+   val num-vis-rows = 20
    val num-cols = 10
    val board = Array<Int|False>(num-rows * num-cols, false)
    defn board-get (r:Int, c:Int) : board[r * num-cols + c]
    defn board-set (r:Int, c:Int, color:False|Int) : board[r * num-cols + c] = color
 
    ;Tile Stats
-   var tile:False|Tile = random-tile()
-   var tile-pos:[Int, Int] = [20, 0]
+   var tile:False|Tile = false
+   var tile-pos:[Int, Int] = [0, 0]
+
+   ;Game Stats
+   var game-over? = false
 
    ;Stamp a tile at a location
    defn stamp (t:Tile, r:Int, c:Int) :
@@ -154,9 +161,15 @@ defn Board () :
       for r in 0 to num-rows do :
          copy-row(r, next(filled-rows)) when not filled?(r)
       do(clear-row, next(filled-rows) to num-rows)         
+
+   ;Have we lost?
+   defn check-game-over? () :
+      for r in num-vis-rows to num-rows any? :
+         any?(occupied?{r, _} 0 to num-cols)            
    
    new Board :
       defmethod rows (this) : num-rows
+      defmethod vis-rows (this) : num-vis-rows
       defmethod cols (this) : num-cols
       defmethod active-tile (this) : tile
          
@@ -169,12 +182,14 @@ defn Board () :
          board-get(r, c)
          
       defmethod slide-tile (this, dr:Int, dc:Int) :
+         fatal("Game is over") when game-over?
          val [tr, tc] = tile-pos
          if fits?(tile as Tile, tr + dr, tc + dc) :
             tile-pos = [tr + dr, tc + dc]
             true
             
       defmethod rotate-tile (this) :
+         fatal("Game is over") when game-over?
          val [tr, tc] = tile-pos
          val rtile = rotate(tile as Tile)
          if fits?(rtile, tr, tc) :
@@ -187,18 +202,80 @@ defn Board () :
                   tile-pos = [tr, tc + dc]
                   true
                (dc:False) :
-                  false            
-            
+                  false                  
+
       defmethod stamp-active-tile (this) :
+         fatal("Game is over") when game-over?
          val [r, c] = tile-pos
          stamp(tile as Tile, r, c)
          tile = false
-         clear-filled-lines()         
+         clear-filled-lines()
+         game-over? = check-game-over?()
          
       defmethod spawn-tile (this) :
+         fatal("Game is over") when game-over?
          fatal("Tile Exists") when tile is Tile
          tile = random-tile()
          tile-pos = [20, 3]
+         
+      defmethod game-over? (this) :
+         game-over?
+         
+      defmethod active-tile-on-ground? (this) :
+         val [tr, tc] = active-tile-pos(this)
+         not fits?(tile as Tile, tr - 1, tc)
+
+;============================================================
+;==================== Controller ============================
+;============================================================
+
+deftype Controller
+defmulti update (c:Controller) -> ?
+defmulti key-pressed (c:Controller, k:Int) -> ?
+
+defn Controller (b:Board) :
+   ;Block drop timer
+   var normal-period = 30
+   val drop-period = 1
+   var period = 30
+   var drop-timer = period
+
+   ;Spawn tile
+   defn drop-next-tile () :
+      spawn-tile(b)
+      period = normal-period
+
+   ;Spawn initial tile
+   drop-next-tile()
+   new Controller :
+      defmethod update (this) :
+         if not game-over?(b) :
+            drop-timer = drop-timer - 1
+            if drop-timer <= 0 :
+               drop-timer = period
+               if not slide-tile(b, -1, 0) :
+                  stamp-active-tile(b)
+                  drop-next-tile() when not game-over?(b)
+                  
+      defmethod key-pressed (this, k:Int) :
+         if not game-over?(b) :
+            switch {k == _} :
+               KEY-UP :
+                  if rotate-tile(b) :
+                     if active-tile-on-ground?(b) :
+                        drop-timer = period
+               KEY-DOWN :
+                  slide-tile(b, -1, 0)
+               KEY-LEFT :
+                  slide-tile(b, 0, -1)
+               KEY-RIGHT :
+                  slide-tile(b, 0, 1)
+               KEY-SPACE :
+                  drop-timer = 0
+                  period = drop-period
+               else :
+                  false
+               
 
 ;============================================================
 ;==================== Drawer ================================
@@ -207,10 +284,7 @@ defn Board () :
 deftype Drawer
 defmulti draw (d:Drawer, b:Board, w:QWidget) -> False
 
-defn vis-rows (b:Board) :
-   rows(b) - 5
-
-defn Drawer () :
+defn Drawer () :   
    ;Coordinate system
    val [bx, by] = [10, 10]
    val [dx, dy] = [24, 24]
@@ -240,8 +314,9 @@ defn Drawer () :
    val white-pen = QPen(white, 2)
    val black-pen = QPen(black, 2)
    val gray-brush = QBrush(gray)
-   new Drawer :
-      defmethod draw (this, b:Board, w:QWidget) :
+   
+   new Drawer :         
+      defmethod draw (this, b:Board, w:QWidget) :      
          val p = QPainter(w)
          
          ;Draw Grid
@@ -262,7 +337,7 @@ defn Drawer () :
                      set-brush(p, colored-brushes[color])
                      draw-rect(p, x, y, dx, dy)
                   (color:False) : false
-                  
+
          ;Draw active tile
          match(active-tile(b)) :
             (t:Tile) :
@@ -284,6 +359,7 @@ defn main () :
    val widget = QWidget()  
    val drawer = Drawer()
    val board = Board()
+   val controller = Controller(board)
 
    ;Event Handling
    set-listener{widget, _} $
@@ -291,23 +367,12 @@ defn main () :
          defmethod painted (this) :
             with-resources $ fn () :
                draw(drawer, board, widget)
-         defmethod mouse-pressed (this, e:QMouseEvent) :
-            println("Mouse pressed")
-         defmethod mouse-moved (this, e:QMouseEvent) :
-            println("Mouse moved (%_, %_)" % [x(e), y(e)])
          defmethod key-pressed (this, e:QKeyEvent) :
-            switch {key(e) == _} :
-               KEY-UP : rotate-tile(board)
-               KEY-DOWN : slide-tile(board, -1, 0)
-               KEY-LEFT : slide-tile(board, 0, -1)
-               KEY-RIGHT : slide-tile(board, 0, 1)
-               KEY-SPACE : stamp-active-tile(board)
-               KEY-S : spawn-tile(board)
+            key-pressed(controller, key(e))
 
    ;Set Framerate Timer
-   val timer = QTimer{_, 33} $ fn () :
-      ;println("Tick!")
-      ;slide-tile(board, -1, 0)
+   val timer = QTimer{_, 16} $ fn () :
+      update(controller)
       update(widget)
    start(timer)
 
