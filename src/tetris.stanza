@@ -267,6 +267,7 @@ defn Controller (b:Board) :
          if game-over?(b) :
             if k == KEY-SPACE :
                reset(b)
+               drop-timer = period
                drop-next-tile()
          else :
             switch {k == _} :
@@ -277,9 +278,13 @@ defn Controller (b:Board) :
                KEY-DOWN :
                   slide-tile(b, -1, 0)
                KEY-LEFT :
-                  slide-tile(b, 0, -1)
+                  if slide-tile(b, 0, -1) :
+                     if active-tile-on-ground?(b) :
+                        drop-timer = period                  
                KEY-RIGHT :
-                  slide-tile(b, 0, 1)
+                  if slide-tile(b, 0, 1) :
+                     if active-tile-on-ground?(b) :
+                        drop-timer = period
                KEY-SPACE :
                   drop-timer = 0
                   period = drop-period
@@ -292,18 +297,19 @@ defn Controller (b:Board) :
 ;============================================================
 
 deftype Drawer
-defmulti draw (d:Drawer, b:Board, w:QWidget) -> False
+defmulti draw (d:Drawer, w:QWidget) -> False
+defmulti size (d:Drawer) -> [Int, Int]
 
-defn Drawer () :   
+defn Drawer (b:Board) :   
    ;Coordinate system
    val [bx, by] = [10, 10]
    val [dx, dy] = [24, 24]
-   defn coord (b:Board, r:Int, c:Int) :
+   defn coord (r:Int, c:Int) :
       val maxy = by + vis-rows(b) * dy
       [bx + c * dx,
        maxy - r * dy - dy]
 
-   defn visible? (b:Board, r:Int, c:Int) :
+   defn visible? (r:Int, c:Int) :
       r >= 0 and c >= 0 and
       r < vis-rows(b) and c < cols(b)
 
@@ -325,8 +331,12 @@ defn Drawer () :
    val black-pen = QPen(black, 2)
    val gray-brush = QBrush(gray)
    
-   new Drawer :         
-      defmethod draw (this, b:Board, w:QWidget) :      
+   new Drawer :
+      defmethod size (this) :
+         [cols(b) * dx + 2 * bx
+          vis-rows(b) * dy + 2 * by]
+         
+      defmethod draw (this, w:QWidget) :      
          val p = QPainter(w)
          
          ;Draw Grid
@@ -334,7 +344,7 @@ defn Drawer () :
          set-brush(p, gray-brush)
          for r in 0 to vis-rows(b) do :
             for c in 0 to cols(b) do :
-               val [x, y] = coord(b, r, c)
+               val [x, y] = coord(r, c)
                draw-rect(p, x, y, dx, dy)
                
          ;Draw tiles
@@ -343,7 +353,7 @@ defn Drawer () :
             for c in 0 to cols(b) do :
                match(b[r, c]) :
                   (color:Int) :
-                     val [x, y] = coord(b, r, c)
+                     val [x, y] = coord(r, c)
                      set-brush(p, colored-brushes[color])
                      draw-rect(p, x, y, dx, dy)
                   (color:False) : false
@@ -353,8 +363,8 @@ defn Drawer () :
             (t:Tile) :
                val [r, c] = active-tile-pos(b)
                for [tr, tc, color] in dots(t) do :
-                  if visible?(b, r + tr, c + tc) :
-                     val [x, y] = coord(b, r + tr, c + tc)
+                  if visible?(r + tr, c + tc) :
+                     val [x, y] = coord(r + tr, c + tc)
                      set-brush(p, colored-brushes[color])
                      draw-rect(p, x, y, dx, dy)
             (t:False) :
@@ -367,16 +377,21 @@ defn Drawer () :
 defn main () :
    val app = QApplication()
    val widget = QWidget()  
-   val drawer = Drawer()
    val board = Board()
+   val drawer = Drawer(board)
    val controller = Controller(board)
+
+   ;Set size
+   val [w, h] = size(drawer)
+   set-width(widget, w)
+   set-height(widget, h)
 
    ;Event Handling
    set-listener{widget, _} $
       new QWidgetListener :
          defmethod painted (this) :
             with-resources $ fn () :
-               draw(drawer, board, widget)
+               draw(drawer, widget)
          defmethod key-pressed (this, e:QKeyEvent) :
             key-pressed(controller, key(e))
 

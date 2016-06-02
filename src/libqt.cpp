@@ -54,7 +54,7 @@ extern "C" {
   void QtWidget_show (StzQtWidget* x){x->show();}
   void QtWidget_update (StzQtWidget* x){x->update();}
   void QtWidget_set_width (StzQtWidget* x, int width){x->width = width;}
-  void QtWidget_set_height (StzQtWidget* x, int height){x->width = height;}
+  void QtWidget_set_height (StzQtWidget* x, int height){x->height = height;}
   void QtWidget_set_listener (StzQtWidget* x, int listener){x->listener = listener;}
   int QtWidget_listener (StzQtWidget* x){return x->listener;}
 }
