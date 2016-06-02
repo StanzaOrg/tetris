@@ -241,7 +241,7 @@ defmulti key-pressed (c:Controller, k:Int) -> ?
 
 defn Controller (b:Board) :
    ;Block drop timer
-   var normal-period = 30
+   val normal-period = 30
    val drop-period = 1
    var period = 30
    var drop-timer = period
@@ -250,6 +250,11 @@ defn Controller (b:Board) :
    defn drop-next-tile () :
       spawn-tile(b)
       period = normal-period
+
+   ;Safety timer
+   defn add-safety-time () :
+      if active-tile-on-ground?(b) :
+         drop-timer = period
 
    ;Spawn initial tile
    drop-next-tile()
@@ -273,18 +278,15 @@ defn Controller (b:Board) :
             switch {k == _} :
                KEY-UP :
                   if rotate-tile(b) :
-                     if active-tile-on-ground?(b) :
-                        drop-timer = period
+                     add-safety-time()
                KEY-DOWN :
                   slide-tile(b, -1, 0)
                KEY-LEFT :
                   if slide-tile(b, 0, -1) :
-                     if active-tile-on-ground?(b) :
-                        drop-timer = period                  
+                     add-safety-time()
                KEY-RIGHT :
                   if slide-tile(b, 0, 1) :
-                     if active-tile-on-ground?(b) :
-                        drop-timer = period
+                     add-safety-time()
                KEY-SPACE :
                   drop-timer = 0
                   period = drop-period
