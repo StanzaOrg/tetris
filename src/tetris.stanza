@@ -53,6 +53,7 @@ extern QtWidget_show: (ptr<?>) -> int
 extern QtWidget_set_width: (ptr<?>, int) -> int
 extern QtWidget_set_height: (ptr<?>, int) -> int
 extern QtWidget_set_listener: (ptr<?>, int) -> int
+extern QtWidget_listener: (ptr<?>) -> int
 
 lostanza deftype QWidget <: Resource :
    value: ptr<?>
@@ -80,6 +81,9 @@ lostanza defn show (w:ref<QWidget>) -> ref<False> :
    return false
 
 lostanza defmethod free (w:ref<QWidget>) -> ref<False> :
+   val listener = call-c QtWidget_listener(w.value)
+   if listener >= 0 :
+      free-id(listener)
    call-c QtWidget_delete(w.value)
    return false
 
@@ -120,6 +124,42 @@ defmethod mouse-pressed (l:QWidgetListener, e:QMouseEvent) : false
 defmethod mouse-released (l:QWidgetListener, e:QMouseEvent) : false
 defmethod mouse-moved (l:QWidgetListener, e:QMouseEvent) : false
 defmethod key-pressed (l:QWidgetListener, e:QKeyEvent) : false
+
+;============================================================
+;===================== QTimer ===============================
+;============================================================
+
+extern QTimer_new: (int, int) -> ptr<?>
+extern QTimer_delete: (ptr<?>) -> int
+extern QTimer_callback: (ptr<?>) -> int
+extern QTimer_start: (ptr<?>) -> int
+extern QTimer_stop: (ptr<?>) -> int
+
+extern defn call_function (func:int) -> int :
+   val f = obj(func) as ref<(() -> ?)>
+   [f]()
+   return 0
+
+lostanza deftype QTimer <: Resource :
+   value: ptr<?>
+
+lostanza defn QTimer (on-tick:ref<(() -> ?)>, interval:ref<Int>) -> ref<QTimer> :
+   val t = call-c QTimer_new(obj-id(on-tick), interval.value)
+   return new-resource(new QTimer{t})
+   
+lostanza defmethod free (t:ref<QTimer>) -> ref<False> :
+   val callback = call-c QTimer_callback(t.value)
+   free-id(callback)
+   call-c QTimer_delete(t.value)
+   return false
+
+lostanza defn start (t:ref<QTimer>) -> ref<False> :
+   call-c QTimer_start(t.value)
+   return false
+
+lostanza defn stop (t:ref<QTimer>) -> ref<False> :
+   call-c QTimer_stop(t.value)
+   return false
 
 ;============================================================
 ;===================== QMouseEvent ==========================
@@ -317,24 +357,28 @@ defn my-listener () :
 defn main () :   
    println("Calling mymain")
    val app = QApplication()
+
+   val timer = QTimer{_, 1000} $ fn () :
+      println("Tick!")
+   start(timer)
+   
    val widget = QWidget()
 
    set-listener{widget, _} $
       new QWidgetListener :
          defmethod painted (this) :
             with-resources $ fn () :
-               println("Start Painting")
                val painter = QPainter(widget)
                val red = QColor(255, 0, 0, 255)
                set-brush(painter, QBrush(red))
                draw-rect(painter, 0, 0, 50, 50)
-               println("End Painting")
          defmethod mouse-pressed (this, e:QMouseEvent) :
             println("Mouse pressed")
          defmethod mouse-moved (this, e:QMouseEvent) :
             println("Mouse moved (%_, %_)" % [x(e), y(e)])
          defmethod key-pressed (this, e:QKeyEvent) :
             println("Key pressed %_" % [key(e)])
+
 
    show(widget)
    exec(app)

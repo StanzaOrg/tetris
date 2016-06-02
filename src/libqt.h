@@ -1,5 +1,6 @@
 #include<QApplication>
 #include<QWidget>
+#include<QTimer>
 
 //============================================================
 //==================== Widget ================================
@@ -19,4 +20,17 @@ class StzQtWidget : public QWidget{
   void mouseReleaseEvent(QMouseEvent* event);
   void mouseMoveEvent(QMouseEvent* event);  
   void keyPressEvent(QKeyEvent *event);
+};
+
+//============================================================
+//==================== Timer =================================
+//============================================================
+
+class StzQtTimer : public QTimer{
+  Q_OBJECT
+ public:
+  int callback;
+  StzQtTimer(int callback);
+ private Q_SLOTS:
+  void tick();
 };

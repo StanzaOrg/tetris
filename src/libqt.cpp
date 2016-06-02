@@ -1,5 +1,6 @@
 #include<QApplication>
 #include<QWidget>
+#include<QTimer>
 #include<QMouseEvent>
 #include<QKeyEvent>
 #include<QPainter>
@@ -54,6 +55,33 @@ extern "C" {
   void QtWidget_set_width (StzQtWidget* x, int width){x->width = width;}
   void QtWidget_set_height (StzQtWidget* x, int height){x->width = height;}
   void QtWidget_set_listener (StzQtWidget* x, int listener){x->listener = listener;}
+  int QtWidget_listener (StzQtWidget* x){return x->listener;}
+}
+
+//============================================================
+//==================== Timer =================================
+//============================================================
+extern "C" void call_function (int func);
+
+StzQtTimer::StzQtTimer(int on_tick){
+  callback = on_tick;
+  connect(this, SIGNAL(timeout()), this, SLOT(tick()));
+}
+
+void StzQtTimer::tick(){
+  call_function(callback);
+}
+
+extern "C" {
+  StzQtTimer* QTimer_new (int func, int interval){
+    StzQtTimer* t = new StzQtTimer(func);
+    t->setInterval(interval);
+    return t;
+  }
+  void QTimer_delete (StzQtTimer* t){delete t;}
+  int QTimer_callback (StzQtTimer* t){return t->callback;}
+  void QTimer_start (StzQtTimer* t){t->start();}
+  void QTimer_stop (StzQtTimer* t){t->stop();}
 }
 
 //============================================================
