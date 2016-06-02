@@ -1,0 +1,341 @@
+defpackage qt5 :
+   import core
+   import collections
+
+;============================================================
+;================== Id Pool =================================
+;============================================================
+
+val ID-SEQ = to-seq(0 to false)
+val FREE-IDS = Vector<Int>()
+val OBJ-MAP = Vector<?>()
+public lostanza defn obj-id (x:ref<?>) -> int :
+   var id:ref<Int>
+   if empty?(FREE-IDS) == true : id = next(ID-SEQ)
+   else : id = pop(FREE-IDS)
+   set(OBJ-MAP, id, x)
+   return id.value
+
+public lostanza defn free-id (id:int) -> ref<False> :
+   add(FREE-IDS, new Int{id})
+   set(OBJ-MAP, new Int{id}, false)
+   return false
+
+public lostanza defn obj (id:int) -> ref<?> :
+   return get(OBJ-MAP, new Int{id})
+
+;============================================================
+;================== Resource Pool ===========================
+;============================================================
+public deftype Resource
+public defmulti free (r:Resource) -> False
+
+val RESOURCE-POOL = Vector<Resource>()
+public defn new-resource<?T> (r:?T&Resource) -> T :
+   add(RESOURCE-POOL, r)
+   r
+   
+public defn with-resources<?T> (f:() -> ?T) -> T :
+   val num-resources = length(RESOURCE-POOL)
+   try :
+      f()
+   finally :
+      while length(RESOURCE-POOL) > num-resources :
+         free(pop(RESOURCE-POOL))
+
+;============================================================   
+;=================== QtWidget ===============================
+;============================================================
+
+extern QtWidget_new: (ptr<?>) -> ptr<?>
+extern QtWidget_delete: (ptr<?>) -> int
+extern QtWidget_show: (ptr<?>) -> int
+extern QtWidget_set_width: (ptr<?>, int) -> int
+extern QtWidget_set_height: (ptr<?>, int) -> int
+extern QtWidget_set_listener: (ptr<?>, int) -> int
+extern QtWidget_listener: (ptr<?>) -> int
+
+public lostanza deftype QWidget <: Resource :
+   value: ptr<?>
+
+public lostanza defn QWidget (parent:ref<QWidget>) -> ref<QWidget> :
+   return new-resource(new QWidget{call-c QtWidget_new(parent.value)})
+
+public lostanza defn QWidget () -> ref<QWidget> :
+   return new-resource(new QWidget{call-c QtWidget_new(0L as ptr<?>)})
+
+public lostanza defn set-width (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
+   call-c QtWidget_set_width(w.value, x.value)
+   return false
+
+public lostanza defn set-height (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
+   call-c QtWidget_set_height(w.value, x.value)
+   return false
+
+public lostanza defn set-listener (w:ref<QWidget>, x:ref<QWidgetListener>) -> ref<False> :
+   call-c QtWidget_set_listener(w.value, obj-id(x))
+   return false
+
+public lostanza defn show (w:ref<QWidget>) -> ref<False> :
+   call-c QtWidget_show(w.value)
+   return false
+
+lostanza defmethod free (w:ref<QWidget>) -> ref<False> :
+   val listener = call-c QtWidget_listener(w.value)
+   if listener >= 0 :
+      free-id(listener)
+   call-c QtWidget_delete(w.value)
+   return false
+
+extern defn QtWidget_paintEvent (listener:int, event:ptr<?>) -> int :
+   if listener >= 0 :
+      painted(obj(listener) as ref<QWidgetListener>)
+   return 0
+
+extern defn QtWidget_mousePressEvent (listener:int, event:ptr<?>) -> int :
+   if listener >= 0 :
+      mouse-pressed(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+   return 0
+
+extern defn QtWidget_mouseReleaseEvent (listener:int, event:ptr<?>) -> int :
+   if listener >= 0 :
+      mouse-released(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+   return 0
+
+extern defn QtWidget_mouseMoveEvent (listener:int, event:ptr<?>) -> int :
+   if listener >= 0 :
+      mouse-moved(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+   return 0
+
+extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
+   if listener >= 0 :
+      key-pressed(obj(listener) as ref<QWidgetListener>, new QKeyEvent{event})
+   return 0
+
+public deftype QWidgetListener
+public defmulti painted (l:QWidgetListener) -> False
+public defmulti mouse-pressed (l:QWidgetListener, e:QMouseEvent) -> False
+public defmulti mouse-released (l:QWidgetListener, e:QMouseEvent) -> False
+public defmulti mouse-moved (l:QWidgetListener, e:QMouseEvent) -> False
+public defmulti key-pressed (l:QWidgetListener, e:QKeyEvent) -> False
+
+defmethod painted (l:QWidgetListener) : false
+defmethod mouse-pressed (l:QWidgetListener, e:QMouseEvent) : false
+defmethod mouse-released (l:QWidgetListener, e:QMouseEvent) : false
+defmethod mouse-moved (l:QWidgetListener, e:QMouseEvent) : false
+defmethod key-pressed (l:QWidgetListener, e:QKeyEvent) : false
+
+;============================================================
+;===================== QTimer ===============================
+;============================================================
+
+extern QTimer_new: (int, int) -> ptr<?>
+extern QTimer_delete: (ptr<?>) -> int
+extern QTimer_callback: (ptr<?>) -> int
+extern QTimer_start: (ptr<?>) -> int
+extern QTimer_stop: (ptr<?>) -> int
+
+extern defn call_function (func:int) -> int :
+   val f = obj(func) as ref<(() -> ?)>
+   [f]()
+   return 0
+
+public lostanza deftype QTimer <: Resource :
+   value: ptr<?>
+
+public lostanza defn QTimer (on-tick:ref<(() -> ?)>, interval:ref<Int>) -> ref<QTimer> :
+   val t = call-c QTimer_new(obj-id(on-tick), interval.value)
+   return new-resource(new QTimer{t})
+   
+lostanza defmethod free (t:ref<QTimer>) -> ref<False> :
+   val callback = call-c QTimer_callback(t.value)
+   free-id(callback)
+   call-c QTimer_delete(t.value)
+   return false
+
+public lostanza defn start (t:ref<QTimer>) -> ref<False> :
+   call-c QTimer_start(t.value)
+   return false
+
+public lostanza defn stop (t:ref<QTimer>) -> ref<False> :
+   call-c QTimer_stop(t.value)
+   return false
+
+;============================================================
+;===================== QMouseEvent ==========================
+;============================================================
+
+extern QMouseEvent_x: (ptr<?>) -> int
+extern QMouseEvent_y: (ptr<?>) -> int
+
+public lostanza deftype QMouseEvent :
+   event: ptr<?>
+   
+public lostanza defn x (e:ref<QMouseEvent>) -> ref<Int> :
+   return new Int{call-c QMouseEvent_x(e.event)}
+
+public lostanza defn y (e:ref<QMouseEvent>) -> ref<Int> :
+   return new Int{call-c QMouseEvent_y(e.event)}
+
+;============================================================
+;================== QKeyEvent ===============================
+;============================================================
+
+extern QKeyEvent_key: (ptr<?>) -> int
+
+public lostanza deftype QKeyEvent :
+   event: ptr<?>
+   
+public lostanza defn key (e:ref<QKeyEvent>) -> ref<Int> :
+   return new Int{call-c QKeyEvent_key(e.event)}
+
+;============================================================
+;==================== QBrush ================================
+;============================================================
+
+extern QBrush_new : () -> ptr<?>
+extern QBrush_new_c : (ptr<?>) -> ptr<?>
+extern QBrush_delete : (ptr<?>) -> int
+
+public lostanza deftype QBrush <: Resource :
+   value:ptr<?>
+
+public lostanza defn QBrush () -> ref<QBrush> :
+   return new-resource(new QBrush{call-c QBrush_new()})
+
+public lostanza defn QBrush (c:ref<QColor>) -> ref<QBrush> :
+   return new-resource(new QBrush{call-c QBrush_new_c(c.value)})
+
+lostanza defmethod free (w:ref<QBrush>) -> ref<False> :
+   call-c QBrush_delete(w.value)
+   return false
+
+;============================================================
+;===================== QColor ===============================
+;============================================================
+
+extern QColor_new : (int, int, int, int) -> ptr<?>
+extern QColor_delete : (ptr<?>) -> int
+
+public lostanza deftype QColor <: Resource :
+   value:ptr<?>
+
+public lostanza defn QColor (r:ref<Int>, g:ref<Int>, b:ref<Int>, a:ref<Int>) -> ref<QColor> :
+   return new-resource(new QColor{call-c QColor_new(r.value, g.value, b.value, a.value)})
+
+lostanza defmethod free (w:ref<QColor>) -> ref<False> :
+   call-c QColor_delete(w.value)
+   return false
+
+;============================================================
+;===================== QPixmap ==============================
+;============================================================
+
+extern QPixmap_load : (ptr<byte>) -> ptr<?>
+extern QPixmap_delete : (ptr<?>) -> int
+extern QPixmap_width : (ptr<?>) -> int
+extern QPixmap_height : (ptr<?>) -> int
+
+public lostanza deftype QPixmap <: Resource :
+   value:ptr<?>
+
+public lostanza defn QPixmap (filepath:ref<String>) -> ref<QPixmap> :
+   return new-resource(new QPixmap{call-c QPixmap_load(addr!(filepath.chars))})
+
+public lostanza defn width (p:ref<QPixmap>) -> ref<Int> :
+   return new Int{call-c QPixmap_width(p.value)}
+   
+public lostanza defn height (p:ref<QPixmap>) -> ref<Int> :
+   return new Int{call-c QPixmap_height(p.value)}
+
+lostanza defmethod free (p:ref<QPixmap>) -> ref<False> :
+   call-c QPixmap_delete(p.value)
+   return false
+
+;============================================================
+;==================== QPainter ==============================
+;============================================================
+extern QPainter_new : (ptr<?>) -> ptr<?>
+extern QPainter_set_pen: (ptr<?>, ptr<?>) -> int
+extern QPainter_set_brush: (ptr<?>, ptr<?>) -> int
+extern QPainter_delete: (ptr<?>) -> int
+extern QPainter_set_opacity: (ptr<?>, float) -> int
+extern QPainter_draw_line: (ptr<?>, int, int, int, int) -> int
+extern QPainter_draw_rect: (ptr<?>, int, int, int, int) -> int
+extern QPainter_draw_pixmap: (ptr<?>, int, int, int, int, ptr<?>) -> int
+
+public lostanza deftype QPainter <: Resource :
+   value:ptr<?>
+   
+public lostanza defn QPainter (w:ref<QWidget>) -> ref<QPainter> :
+   return new-resource(new QPainter{call-c QPainter_new(w.value)})
+   
+public lostanza defn set-pen (w:ref<QPainter>, p:ref<QPen>) -> ref<False> :
+   call-c QPainter_set_pen(w.value, p.value)
+   return false
+
+public lostanza defn set-brush (w:ref<QPainter>, b:ref<QBrush>) -> ref<False> :
+   call-c QPainter_set_brush(w.value, b.value)
+   return false
+
+public lostanza defn set-opacity (w:ref<QPainter>, o:ref<Float>) -> ref<False> :
+   call-c QPainter_set_opacity(w.value, o.value)
+   return false
+
+public lostanza defn draw-line (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, x2:ref<Int>, y2:ref<Int>) -> ref<False> :
+   call-c QPainter_draw_line(w.value, x.value, y.value, x2.value, y2.value)
+   return false
+
+public lostanza defn draw-rect (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, width:ref<Int>, height:ref<Int>) -> ref<False> :
+   call-c QPainter_draw_rect(w.value, x.value, y.value, width.value, height.value)
+   return false
+
+public lostanza defn draw-pixmap (w:ref<QPainter>, x:ref<Int>, y:ref<Int>, width:ref<Int>, height:ref<Int>, pixmap:ref<QPixmap>) -> ref<False> :
+   call-c QPainter_draw_pixmap(w.value, x.value, y.value, width.value, height.value, pixmap.value)
+   return false
+
+lostanza defmethod free (w:ref<QPainter>) -> ref<False> :
+   call-c QPainter_delete(w.value)
+   return false
+
+;============================================================
+;===================== QPen =================================
+;============================================================
+
+extern QPen_new : (ptr<?>, int) -> ptr<?>
+extern QPen_delete : (ptr<?>) -> int
+
+public lostanza deftype QPen <: Resource :
+   value:ptr<?>
+
+public lostanza defn QPen (c:ref<QColor>, thickness:ref<Int>) -> ref<QPen> :
+   return new-resource(new QPen{call-c QPen_new(c.value, thickness.value)})
+
+lostanza defmethod free (w:ref<QPen>) -> ref<False> :
+   call-c QPen_delete(w.value)
+   return false
+
+;============================================================
+;================= QApplication =============================
+;============================================================
+
+extern input_argc: long
+extern input_argv: ptr<ptr<byte>>
+extern QApplication_new: (int, ptr<ptr<byte>>) -> ptr<?>
+extern QApplication_delete: (ptr<?>) -> int
+extern QApplication_exec: (ptr<?>) -> int
+
+public lostanza deftype QApplication <: Resource :
+   value: ptr<?>
+
+public lostanza defn QApplication () -> ref<QApplication> :
+   return new-resource(new QApplication{call-c QApplication_new(input_argc as int, input_argv)})
+
+public lostanza defn exec (a:ref<QApplication>) -> ref<False> :
+   call-c QApplication_exec(a.value)
+   return false
+
+lostanza defmethod free (w:ref<QApplication>) -> ref<False> :
+   call-c QApplication_delete(w.value)
+   return false
+
