@@ -50,6 +50,7 @@ public defn with-resources<?T> (f:() -> ?T) -> T :
 extern QtWidget_new: (ptr<?>) -> ptr<?>
 extern QtWidget_delete: (ptr<?>) -> int
 extern QtWidget_show: (ptr<?>) -> int
+extern QtWidget_update: (ptr<?>) -> int
 extern QtWidget_set_width: (ptr<?>, int) -> int
 extern QtWidget_set_height: (ptr<?>, int) -> int
 extern QtWidget_set_listener: (ptr<?>, int) -> int
@@ -78,6 +79,10 @@ public lostanza defn set-listener (w:ref<QWidget>, x:ref<QWidgetListener>) -> re
 
 public lostanza defn show (w:ref<QWidget>) -> ref<False> :
    call-c QtWidget_show(w.value)
+   return false
+
+public lostanza defn update (w:ref<QWidget>) -> ref<False> :
+   call-c QtWidget_update(w.value)
    return false
 
 lostanza defmethod free (w:ref<QWidget>) -> ref<False> :
@@ -113,11 +118,11 @@ extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
    return 0
 
 public deftype QWidgetListener
-public defmulti painted (l:QWidgetListener) -> False
-public defmulti mouse-pressed (l:QWidgetListener, e:QMouseEvent) -> False
-public defmulti mouse-released (l:QWidgetListener, e:QMouseEvent) -> False
-public defmulti mouse-moved (l:QWidgetListener, e:QMouseEvent) -> False
-public defmulti key-pressed (l:QWidgetListener, e:QKeyEvent) -> False
+public defmulti painted (l:QWidgetListener) -> ?
+public defmulti mouse-pressed (l:QWidgetListener, e:QMouseEvent) -> ?
+public defmulti mouse-released (l:QWidgetListener, e:QMouseEvent) -> ?
+public defmulti mouse-moved (l:QWidgetListener, e:QMouseEvent) -> ?
+public defmulti key-pressed (l:QWidgetListener, e:QKeyEvent) -> ?
 
 defmethod painted (l:QWidgetListener) : false
 defmethod mouse-pressed (l:QWidgetListener, e:QMouseEvent) : false
@@ -339,3 +344,48 @@ lostanza defmethod free (w:ref<QApplication>) -> ref<False> :
    call-c QApplication_delete(w.value)
    return false
 
+;============================================================
+;===================== Keys =================================
+;============================================================
+
+public val KEY-A = 65
+public val KEY-B = 66
+public val KEY-C = 67
+public val KEY-D = 68
+public val KEY-E = 69
+public val KEY-F = 70
+public val KEY-G = 71
+public val KEY-H = 72
+public val KEY-I = 73
+public val KEY-J = 74
+public val KEY-K = 75
+public val KEY-L = 76
+public val KEY-M = 77
+public val KEY-N = 78
+public val KEY-O = 79
+public val KEY-P = 80
+public val KEY-Q = 81
+public val KEY-R = 82
+public val KEY-S = 83
+public val KEY-T = 84
+public val KEY-U = 85
+public val KEY-V = 86
+public val KEY-W = 87
+public val KEY-X = 88
+public val KEY-Y = 89
+public val KEY-Z = 90
+public val KEY-1 = 49
+public val KEY-2 = 50
+public val KEY-3 = 51
+public val KEY-4 = 52
+public val KEY-5 = 53
+public val KEY-6 = 54
+public val KEY-7 = 55
+public val KEY-8 = 56
+public val KEY-9 = 57
+public val KEY-0 = 48
+public val KEY-UP = 16777235
+public val KEY-DOWN = 16777237
+public val KEY-LEFT = 16777234
+public val KEY-RIGHT = 16777236
+public val KEY-SPACE = 32

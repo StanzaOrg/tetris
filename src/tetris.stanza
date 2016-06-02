@@ -93,30 +93,24 @@ deftype Board
 defmulti rows (b:Board) -> Int
 defmulti cols (b:Board) -> Int
 defmulti get (b:Board, r:Int, c:Int) -> False|Int
-
-defmulti dots (b:Board) -> Collection<[Int, Int, Int]>
-defmulti spawn-tile (b:Board) -> False
 defmulti active-tile (b:Board) -> False|Tile
 defmulti active-tile-pos (b:Board) -> [Int, Int]
-defmulti slide-tile (b:Board, x:Int) -> False|True
-defmulti drop-tile (b:Board) -> False|True
-
+defmulti spawn-tile (b:Board) -> False
+defmulti rotate-tile (b:Board) -> False|True
+defmulti slide-tile (b:Board, dr:Int, dc:Int) -> False|True
+defmulti stamp-active-tile (b:Board) -> False
 
 defn Board () :
    ;Board Stats
-   val rows = 25
-   val cols = 10
-   val board = Array<Int|False>(rows * cols, false)
-   defn board-get (r:Int, c:Int) : board[r * cols + c]
-   defn board-set (r:Int, c:Int, color:Int) : board[r * cols + c] = color
-
-   board-set(0, 0, 0)
-   board-set(0, 1, 2)
-   board-set(1, 1, 3)
+   val num-rows = 25
+   val num-cols = 10
+   val board = Array<Int|False>(num-rows * num-cols, false)
+   defn board-get (r:Int, c:Int) : board[r * num-cols + c]
+   defn board-set (r:Int, c:Int, color:False|Int) : board[r * num-cols + c] = color
 
    ;Tile Stats
-   var tile:False|Tile = false
-   var tile-pos:[Int, Int] = [0, 0]
+   var tile:False|Tile = random-tile()
+   var tile-pos:[Int, Int] = [20, 0]
 
    ;Stamp a tile at a location
    defn stamp (t:Tile, r:Int, c:Int) :
@@ -128,7 +122,7 @@ defn Board () :
 
    ;Does a tile fit in a given location?
    defn in-bounds? (r:Int, c:Int) :
-      r >= 0 and c >= 0 and r < rows and c < cols
+      r >= 0 and c >= 0 and r < num-rows and c < num-cols
    defn occupied? (r:Int, c:Int) :
       board-get(r, c) is Int
    defn fits? (t:Tile, r:Int, c:Int) :
@@ -136,23 +130,75 @@ defn Board () :
          val dr = r + tr
          val dc = c + tc
          in-bounds?(dr, dc) and not occupied?(dr, dc)
+   defn kick (t:Tile, r:Int, c:Int) :
+      val cl = for i in 1 to cols(t) find : fits?(t, r, c - i)
+      val cr = for i in 1 to cols(t) find : fits?(t, r, c + i)
+      match(cl, cr) :
+         (cl:False, cr:False) : false
+         (cl:Int, cr:False) : (- cl)
+         (cl:False, cr:Int) : cr
+         (cl:Int, cr:Int) : cr when cr < cl else (- cl)
+
+   ;Find and clear full lines
+   defn clear-filled-lines () :
+      defn copy-row (r1:Int, r2:Int) :
+         if r1 != r2 :
+            for c in 0 to num-cols do :
+               board-set(r2, c, board-get(r1, c))
+      defn clear-row (r:Int) :
+         for c in 0 to num-cols do :
+            board-set(r, c, false)
+      defn filled? (r:Int) :
+         all?(occupied?{r, _}, 0 to num-cols)
+      val filled-rows = to-seq(0 through num-rows)
+      for r in 0 to num-rows do :
+         copy-row(r, next(filled-rows)) when not filled?(r)
+      do(clear-row, next(filled-rows) to num-rows)         
    
    new Board :
-      defmethod rows (this) : rows
-      defmethod cols (this) : cols
+      defmethod rows (this) : num-rows
+      defmethod cols (this) : num-cols
       defmethod active-tile (this) : tile
          
       defmethod active-tile-pos (this) :
          fatal("No active tile") when tile is False
          tile-pos
-         
-      defmethod drop-tile (this) :
-         fatal("No active tile") when tile is False
-         false
 
       defmethod get (this, r:Int, c:Int) -> False|Int :
          fatal("Out of Bounds") when not in-bounds?(r, c)
          board-get(r, c)
+         
+      defmethod slide-tile (this, dr:Int, dc:Int) :
+         val [tr, tc] = tile-pos
+         if fits?(tile as Tile, tr + dr, tc + dc) :
+            tile-pos = [tr + dr, tc + dc]
+            true
+            
+      defmethod rotate-tile (this) :
+         val [tr, tc] = tile-pos
+         val rtile = rotate(tile as Tile)
+         if fits?(rtile, tr, tc) :
+            tile = rtile
+            true
+         else :
+            match(kick(rtile, tr, tc)) :
+               (dc:Int) :
+                  tile = rtile
+                  tile-pos = [tr, tc + dc]
+                  true
+               (dc:False) :
+                  false            
+            
+      defmethod stamp-active-tile (this) :
+         val [r, c] = tile-pos
+         stamp(tile as Tile, r, c)
+         tile = false
+         clear-filled-lines()         
+         
+      defmethod spawn-tile (this) :
+         fatal("Tile Exists") when tile is Tile
+         tile = random-tile()
+         tile-pos = [20, 3]
 
 ;============================================================
 ;==================== Drawer ================================
@@ -172,6 +218,10 @@ defn Drawer () :
       val maxy = by + vis-rows(b) * dy
       [bx + c * dx,
        maxy - r * dy - dy]
+
+   defn visible? (b:Board, r:Int, c:Int) :
+      r >= 0 and c >= 0 and
+      r < vis-rows(b) and c < cols(b)
 
    ;Tile Colored Brushes
    val colored-brushes = to-tuple{seq(QBrush, _)} $ [
@@ -212,6 +262,18 @@ defn Drawer () :
                      set-brush(p, colored-brushes[color])
                      draw-rect(p, x, y, dx, dy)
                   (color:False) : false
+                  
+         ;Draw active tile
+         match(active-tile(b)) :
+            (t:Tile) :
+               val [r, c] = active-tile-pos(b)
+               for [tr, tc, color] in dots(t) do :
+                  if visible?(b, r + tr, c + tc) :
+                     val [x, y] = coord(b, r + tr, c + tc)
+                     set-brush(p, colored-brushes[color])
+                     draw-rect(p, x, y, dx, dy)
+            (t:False) :
+               false
 
 ;============================================================
 ;================= Scratch ==================================
@@ -234,11 +296,19 @@ defn main () :
          defmethod mouse-moved (this, e:QMouseEvent) :
             println("Mouse moved (%_, %_)" % [x(e), y(e)])
          defmethod key-pressed (this, e:QKeyEvent) :
-            println("Key pressed %_" % [key(e)])
+            switch {key(e) == _} :
+               KEY-UP : rotate-tile(board)
+               KEY-DOWN : slide-tile(board, -1, 0)
+               KEY-LEFT : slide-tile(board, 0, -1)
+               KEY-RIGHT : slide-tile(board, 0, 1)
+               KEY-SPACE : stamp-active-tile(board)
+               KEY-S : spawn-tile(board)
 
    ;Set Framerate Timer
-   val timer = QTimer{_, 1000} $ fn () :
-      println("Tick!")
+   val timer = QTimer{_, 33} $ fn () :
+      ;println("Tick!")
+      ;slide-tile(board, -1, 0)
+      update(widget)
    start(timer)
 
    ;Start!
