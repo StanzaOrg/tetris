@@ -92,6 +92,7 @@ defn random-tile () :
 deftype Board
 defmulti rows (b:Board) -> Int
 defmulti cols (b:Board) -> Int
+defmulti reset (b:Board) -> False
 defmulti vis-rows (b:Board) -> Int
 defmulti get (b:Board, r:Int, c:Int) -> False|Int
 defmulti active-tile (b:Board) -> False|Tile
@@ -172,6 +173,11 @@ defn Board () :
       defmethod vis-rows (this) : num-vis-rows
       defmethod cols (this) : num-cols
       defmethod active-tile (this) : tile
+
+      defmethod reset (this) :
+         board[0 to false] = repeat(false)
+         tile = false
+         game-over? = false
          
       defmethod active-tile-pos (this) :
          fatal("No active tile") when tile is False
@@ -258,7 +264,11 @@ defn Controller (b:Board) :
                   drop-next-tile() when not game-over?(b)
                   
       defmethod key-pressed (this, k:Int) :
-         if not game-over?(b) :
+         if game-over?(b) :
+            if k == KEY-SPACE :
+               reset(b)
+               drop-next-tile()
+         else :
             switch {k == _} :
                KEY-UP :
                   if rotate-tile(b) :
