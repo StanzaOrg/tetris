@@ -3,28 +3,6 @@ defpackage qt5 :
    import collections
 
 ;============================================================
-;================== Id Pool =================================
-;============================================================
-
-val ID-SEQ = to-seq(0 to false)
-val FREE-IDS = Vector<Int>()
-val OBJ-MAP = Vector<?>()
-public lostanza defn obj-id (x:ref<?>) -> int :
-   var id:ref<Int>
-   if empty?(FREE-IDS) == true : id = next(ID-SEQ)
-   else : id = pop(FREE-IDS)
-   set(OBJ-MAP, id, x)
-   return id.value
-
-public lostanza defn free-id (id:int) -> ref<False> :
-   add(FREE-IDS, new Int{id})
-   set(OBJ-MAP, new Int{id}, false)
-   return false
-
-public lostanza defn obj (id:int) -> ref<?> :
-   return get(OBJ-MAP, new Int{id})
-
-;============================================================
 ;================== Resource Pool ===========================
 ;============================================================
 public deftype Resource
@@ -74,7 +52,7 @@ public lostanza defn set-height (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
    return false
 
 public lostanza defn set-listener (w:ref<QWidget>, x:ref<QWidgetListener>) -> ref<False> :
-   call-c QtWidget_set_listener(w.value, obj-id(x))
+   call-c QtWidget_set_listener(w.value, box-object(x))
    return false
 
 public lostanza defn show (w:ref<QWidget>) -> ref<False> :
@@ -88,33 +66,33 @@ public lostanza defn update (w:ref<QWidget>) -> ref<False> :
 lostanza defmethod free (w:ref<QWidget>) -> ref<False> :
    val listener = call-c QtWidget_listener(w.value)
    if listener >= 0 :
-      free-id(listener)
+      free-box(listener)
    call-c QtWidget_delete(w.value)
    return false
 
 extern defn QtWidget_paintEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      painted(obj(listener) as ref<QWidgetListener>)
+      painted(boxed-object(listener) as ref<QWidgetListener>)
    return 0
 
 extern defn QtWidget_mousePressEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-pressed(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+      mouse-pressed(boxed-object(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_mouseReleaseEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-released(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+      mouse-released(boxed-object(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_mouseMoveEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      mouse-moved(obj(listener) as ref<QWidgetListener>, new QMouseEvent{event})
+      mouse-moved(boxed-object(listener) as ref<QWidgetListener>, new QMouseEvent{event})
    return 0
 
 extern defn QtWidget_keyPressEvent (listener:int, event:ptr<?>) -> int :
    if listener >= 0 :
-      key-pressed(obj(listener) as ref<QWidgetListener>, new QKeyEvent{event})
+      key-pressed(boxed-object(listener) as ref<QWidgetListener>, new QKeyEvent{event})
    return 0
 
 public deftype QWidgetListener
@@ -141,7 +119,7 @@ extern QTimer_start: (ptr<?>) -> int
 extern QTimer_stop: (ptr<?>) -> int
 
 extern defn call_function (func:int) -> int :
-   val f = obj(func) as ref<(() -> ?)>
+   val f = boxed-object(func) as ref<(() -> ?)>
    [f]()
    return 0
 
@@ -149,12 +127,12 @@ public lostanza deftype QTimer <: Resource :
    value: ptr<?>
 
 public lostanza defn QTimer (on-tick:ref<(() -> ?)>, interval:ref<Int>) -> ref<QTimer> :
-   val t = call-c QTimer_new(obj-id(on-tick), interval.value)
+   val t = call-c QTimer_new(box-object(on-tick), interval.value)
    return new-resource(new QTimer{t})
    
 lostanza defmethod free (t:ref<QTimer>) -> ref<False> :
    val callback = call-c QTimer_callback(t.value)
-   free-id(callback)
+   free-box(callback)
    call-c QTimer_delete(t.value)
    return false
 
@@ -202,18 +180,19 @@ extern QBrush_new : () -> ptr<?>
 extern QBrush_new_c : (ptr<?>) -> ptr<?>
 extern QBrush_delete : (ptr<?>) -> int
 
-public lostanza deftype QBrush <: Resource :
+public lostanza deftype QBrush :
    value:ptr<?>
+   marker:ref<LivenessMarker>
 
 public lostanza defn QBrush () -> ref<QBrush> :
-   return new-resource(new QBrush{call-c QBrush_new()})
+   val ptr = call-c QBrush_new()
+   val m = c-autofree-marker(addr(QBrush_delete), ptr)
+   return new QBrush{ptr, m}
 
 public lostanza defn QBrush (c:ref<QColor>) -> ref<QBrush> :
-   return new-resource(new QBrush{call-c QBrush_new_c(c.value)})
-
-lostanza defmethod free (w:ref<QBrush>) -> ref<False> :
-   call-c QBrush_delete(w.value)
-   return false
+   val ptr = call-c QBrush_new_c(c.value)
+   val m = c-autofree-marker(addr(QBrush_delete), ptr)
+   return new QBrush{ptr, m}
 
 ;============================================================
 ;===================== QColor ===============================
@@ -222,15 +201,14 @@ lostanza defmethod free (w:ref<QBrush>) -> ref<False> :
 extern QColor_new : (int, int, int, int) -> ptr<?>
 extern QColor_delete : (ptr<?>) -> int
 
-public lostanza deftype QColor <: Resource :
+public lostanza deftype QColor :
    value:ptr<?>
+   marker:ref<LivenessMarker>
 
 public lostanza defn QColor (r:ref<Int>, g:ref<Int>, b:ref<Int>, a:ref<Int>) -> ref<QColor> :
-   return new-resource(new QColor{call-c QColor_new(r.value, g.value, b.value, a.value)})
-
-lostanza defmethod free (w:ref<QColor>) -> ref<False> :
-   call-c QColor_delete(w.value)
-   return false
+   val ptr = call-c QColor_new(r.value, g.value, b.value, a.value)
+   val m = c-autofree-marker(addr(QColor_delete), ptr)
+   return new QColor{ptr, m}
 
 ;============================================================
 ;===================== QPixmap ==============================
@@ -241,21 +219,20 @@ extern QPixmap_delete : (ptr<?>) -> int
 extern QPixmap_width : (ptr<?>) -> int
 extern QPixmap_height : (ptr<?>) -> int
 
-public lostanza deftype QPixmap <: Resource :
+public lostanza deftype QPixmap :
    value:ptr<?>
+   marker:ref<LivenessMarker>
 
 public lostanza defn QPixmap (filepath:ref<String>) -> ref<QPixmap> :
-   return new-resource(new QPixmap{call-c QPixmap_load(addr!(filepath.chars))})
+   val ptr = call-c QPixmap_load(addr!(filepath.chars))
+   val m = c-autofree-marker(addr(QPixmap_delete), ptr)
+   return new QPixmap{ptr, m}
 
 public lostanza defn width (p:ref<QPixmap>) -> ref<Int> :
    return new Int{call-c QPixmap_width(p.value)}
    
 public lostanza defn height (p:ref<QPixmap>) -> ref<Int> :
    return new Int{call-c QPixmap_height(p.value)}
-
-lostanza defmethod free (p:ref<QPixmap>) -> ref<False> :
-   call-c QPixmap_delete(p.value)
-   return false
 
 ;============================================================
 ;==================== QPainter ==============================
@@ -310,15 +287,14 @@ lostanza defmethod free (w:ref<QPainter>) -> ref<False> :
 extern QPen_new : (ptr<?>, int) -> ptr<?>
 extern QPen_delete : (ptr<?>) -> int
 
-public lostanza deftype QPen <: Resource :
+public lostanza deftype QPen :
    value:ptr<?>
+   marker:ref<LivenessMarker>
 
 public lostanza defn QPen (c:ref<QColor>, thickness:ref<Int>) -> ref<QPen> :
-   return new-resource(new QPen{call-c QPen_new(c.value, thickness.value)})
-
-lostanza defmethod free (w:ref<QPen>) -> ref<False> :
-   call-c QPen_delete(w.value)
-   return false
+   val ptr = call-c QPen_new(c.value, thickness.value)
+   val m = c-autofree-marker(addr(QPen_delete), ptr)
+   return new QPen{ptr, m}
 
 ;============================================================
 ;================= QApplication =============================
