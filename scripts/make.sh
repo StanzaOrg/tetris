@@ -1,5 +1,9 @@
+#Adjust these to point to your QT installation
+QTDIR=/home/psli/Qt5.6.0
+
+mkdir -p build
 cd build
-/Users/psli/Qt5.6.0/5.6/clang_64/bin/qmake ../src/tetris.pro -r -spec macx-clang
+$QTDIR/5.6/gcc_64/bin/qmake ../src/tetris.pro -r -spec linux-g++
 make
 cd ..
-stanza src/libqt.stanza src/tetris.stanza -o tetris -ccfiles build/libtetris.a -ccflags "-lstdc++ -F/Users/psli/Qt5.6.0/5.6/clang_64/lib -framework QtWidgets -framework QtGui -framework QtCore -framework OpenGL -framework AGL -Wl,-rpath,/Users/psli/Qt5.6.0/5.6/clang_64/lib"
+stanza src/libqt.stanza src/tetris.stanza -o tetris -ccfiles build/libtetris.a -ccflags "-lstdc++ -Wl,-O1 -Wl,-z,origin -Wl,-rpath,\$ORIGIN -Wl,-rpath,$QTDIR/5.6/gcc_64/lib -L$QTDIR/5.6/gcc_64/lib -lQt5Widgets -lQt5Gui -lQt5Core -lGL -lpthread"
