@@ -232,69 +232,6 @@ defn Board () :
          not fits?(tile as Tile, tr - 1, tc)
 
 ;============================================================
-;==================== Controller ============================
-;============================================================
-
-deftype Controller
-defmulti update (c:Controller) -> ?
-defmulti key-pressed (c:Controller, k:Int) -> ?
-
-defn Controller (b:Board) :
-   ;Block drop timer
-   val normal-period = 30
-   val drop-period = 1
-   var period = 30
-   var drop-timer = period
-
-   ;Spawn tile
-   defn drop-next-tile () :
-      spawn-tile(b)
-      period = normal-period
-
-   ;Safety timer
-   defn add-safety-time () :
-      if active-tile-on-ground?(b) :
-         drop-timer = period
-
-   ;Spawn initial tile
-   drop-next-tile()
-   new Controller :
-      defmethod update (this) :
-         if not game-over?(b) :
-            drop-timer = drop-timer - 1
-            if drop-timer <= 0 :
-               drop-timer = period
-               if not slide-tile(b, -1, 0) :
-                  stamp-active-tile(b)
-                  drop-next-tile() when not game-over?(b)
-                  
-      defmethod key-pressed (this, k:Int) :
-         if game-over?(b) :
-            if k == KEY-SPACE :
-               reset(b)
-               drop-timer = period
-               drop-next-tile()
-         else :
-            switch {k == _} :
-               KEY-UP :
-                  if rotate-tile(b) :
-                     add-safety-time()
-               KEY-DOWN :
-                  slide-tile(b, -1, 0)
-               KEY-LEFT :
-                  if slide-tile(b, 0, -1) :
-                     add-safety-time()
-               KEY-RIGHT :
-                  if slide-tile(b, 0, 1) :
-                     add-safety-time()
-               KEY-SPACE :
-                  drop-timer = 0
-                  period = drop-period
-               else :
-                  false
-               
-
-;============================================================
 ;==================== Drawer ================================
 ;============================================================
 
@@ -373,18 +310,92 @@ defn Drawer (b:Board) :
                false
 
 ;============================================================
+;==================== Controller ============================
+;============================================================
+
+deftype Game
+defmulti update (g:Game) -> False
+defmulti key-pressed (g:Game, k:Int) -> False
+defmulti draw (g:Game, widget:QWidget) -> False
+defmulti size (g:Game) -> [Int, Int]
+
+defn Game () :
+   ;Game components
+   val b = Board()
+   val drawer = Drawer(b)
+   
+   ;Block drop timer
+   val normal-period = 30
+   val drop-period = 1
+   var period = 30
+   var drop-timer = period
+
+   ;Spawn tile
+   defn drop-next-tile () :
+      spawn-tile(b)
+      period = normal-period
+
+   ;Safety timer
+   defn add-safety-time () :
+      if active-tile-on-ground?(b) :
+         drop-timer = period
+
+   ;Spawn initial tile
+   drop-next-tile()
+   new Game :
+      defmethod update (this) :
+         if not game-over?(b) :
+            drop-timer = drop-timer - 1
+            if drop-timer <= 0 :
+               drop-timer = period
+               if not slide-tile(b, -1, 0) :
+                  stamp-active-tile(b)
+                  drop-next-tile() when not game-over?(b)
+                  
+      defmethod key-pressed (this, k:Int) :
+         if game-over?(b) :
+            if k == KEY-SPACE :
+               reset(b)
+               drop-timer = period
+               drop-next-tile()
+         else :
+            switch {k == _} :
+               KEY-UP :
+                  if rotate-tile(b) :
+                     add-safety-time()
+               KEY-DOWN :
+                  slide-tile(b, -1, 0)
+               KEY-LEFT :
+                  if slide-tile(b, 0, -1) :
+                     add-safety-time()
+               KEY-RIGHT :
+                  if slide-tile(b, 0, 1) :
+                     add-safety-time()
+               KEY-SPACE :
+                  drop-timer = 0
+                  period = drop-period
+               else :
+                  false
+         false         
+                  
+      defmethod draw (this, w:QWidget) :
+         draw(drawer, w)
+         
+      defmethod size (this) :
+         size(drawer)
+               
+
+;============================================================
 ;================= Scratch ==================================
 ;============================================================
 
 defn main () :
    val app = QApplication()
-   val widget = QWidget()  
-   val board = Board()
-   val drawer = Drawer(board)
-   val controller = Controller(board)
+   val widget = QWidget()
+   val game = Game()
 
    ;Set size
-   val [w, h] = size(drawer)
+   val [w, h] = size(game)
    set-width(widget, w)
    set-height(widget, h)
 
@@ -393,13 +404,13 @@ defn main () :
       new QWidgetListener :
          defmethod painted (this) :
             with-resources $ fn () :
-               draw(drawer, widget)
+               draw(game, widget)
          defmethod key-pressed (this, e:QKeyEvent) :
-            key-pressed(controller, key(e))
+            key-pressed(game, key(e))
 
    ;Set Framerate Timer
    val timer = QTimer{_, 16} $ fn () :
-      update(controller)
+      update(game)
       update(widget)
    start(timer)
 
