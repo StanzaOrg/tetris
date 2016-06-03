@@ -275,9 +275,9 @@ defn Drawer (b:Board) :
          [cols(b) * dx + 2 * bx
           vis-rows(b) * dy + 2 * by]
          
-      defmethod draw (this, w:QWidget) :      
-         val p = QPainter(w)
-         
+      defmethod draw (this, w:QWidget) :
+         resource p = QPainter(w)
+            
          ;Draw Grid
          set-pen(p, white-pen)
          set-brush(p, gray-brush)
@@ -296,7 +296,7 @@ defn Drawer (b:Board) :
                      set-brush(p, colored-brushes[color])
                      draw-rect(p, x, y, dx, dy)
                   (color:False) : false
-
+         
          ;Draw active tile
          match(active-tile(b)) :
             (t:Tile) :
@@ -390,32 +390,31 @@ defn Game () :
 ;============================================================
 
 defn main () :
-   val app = QApplication()
-   val widget = QWidget()
+   resource app = QApplication()
+   resource widget = QWidget()
    val game = Game()
-
+   
    ;Set size
    val [w, h] = size(game)
    set-width(widget, w)
    set-height(widget, h)
-
+   
    ;Event Handling
    set-listener{widget, _} $
       new QWidgetListener :
          defmethod painted (this) :
-            with-resources $ fn () :
-               draw(game, widget)
+            draw(game, widget)
          defmethod key-pressed (this, e:QKeyEvent) :
             key-pressed(game, key(e))
-
+   
    ;Set Framerate Timer
-   val timer = QTimer{_, 16} $ fn () :
+   resource timer = QTimer{_, 16} $ fn () :
       update(game)
       update(widget)
    start(timer)
-
+   
    ;Start!
    show(widget)
    exec(app)
 
-with-resources(main)
+main()

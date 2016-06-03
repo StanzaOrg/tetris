@@ -5,21 +5,21 @@ defpackage qt5 :
 ;============================================================
 ;================== Resource Pool ===========================
 ;============================================================
-public deftype Resource
-public defmulti free (r:Resource) -> False
-
-val RESOURCE-POOL = Vector<Resource>()
-public defn new-resource<?T> (r:?T&Resource) -> T :
-   add(RESOURCE-POOL, r)
-   r
-   
-public defn with-resources<?T> (f:() -> ?T) -> T :
-   val num-resources = length(RESOURCE-POOL)
-   try :
-      f()
-   finally :
-      while length(RESOURCE-POOL) > num-resources :
-         free(pop(RESOURCE-POOL))
+;public deftype Resource
+;public defmulti free (r:Resource) -> False
+;
+;val RESOURCE-POOL = Vector<Resource>()
+;public defn new-resource<?T> (r:?T&Resource) -> T :
+;   add(RESOURCE-POOL, r)
+;   r
+;   
+;public defn with-resources<?T> (f:() -> ?T) -> T :
+;   val num-resources = length(RESOURCE-POOL)
+;   try :
+;      f()
+;   finally :
+;      while length(RESOURCE-POOL) > num-resources :
+;         free(pop(RESOURCE-POOL))
 
 ;============================================================   
 ;=================== QtWidget ===============================
@@ -38,10 +38,10 @@ public lostanza deftype QWidget <: Resource :
    value: ptr<?>
 
 public lostanza defn QWidget (parent:ref<QWidget>) -> ref<QWidget> :
-   return new-resource(new QWidget{call-c QtWidget_new(parent.value)})
+   return new QWidget{call-c QtWidget_new(parent.value)}
 
 public lostanza defn QWidget () -> ref<QWidget> :
-   return new-resource(new QWidget{call-c QtWidget_new(0L as ptr<?>)})
+   return new QWidget{call-c QtWidget_new(0L as ptr<?>)}
 
 public lostanza defn set-width (w:ref<QWidget>, x:ref<Int>) -> ref<False> :
    call-c QtWidget_set_width(w.value, x.value)
@@ -128,7 +128,7 @@ public lostanza deftype QTimer <: Resource :
 
 public lostanza defn QTimer (on-tick:ref<(() -> ?)>, interval:ref<Int>) -> ref<QTimer> :
    val t = call-c QTimer_new(box-object(on-tick), interval.value)
-   return new-resource(new QTimer{t})
+   return new QTimer{t}
    
 lostanza defmethod free (t:ref<QTimer>) -> ref<False> :
    val callback = call-c QTimer_callback(t.value)
@@ -250,7 +250,7 @@ public lostanza deftype QPainter <: Resource :
    value:ptr<?>
    
 public lostanza defn QPainter (w:ref<QWidget>) -> ref<QPainter> :
-   return new-resource(new QPainter{call-c QPainter_new(w.value)})
+   return new QPainter{call-c QPainter_new(w.value)}
    
 public lostanza defn set-pen (w:ref<QPainter>, p:ref<QPen>) -> ref<False> :
    call-c QPainter_set_pen(w.value, p.value)
@@ -310,7 +310,7 @@ public lostanza deftype QApplication <: Resource :
    value: ptr<?>
 
 public lostanza defn QApplication () -> ref<QApplication> :
-   return new-resource(new QApplication{call-c QApplication_new(input_argc as int, input_argv)})
+   return new QApplication{call-c QApplication_new(input_argc as int, input_argv)}
 
 public lostanza defn exec (a:ref<QApplication>) -> ref<False> :
    call-c QApplication_exec(a.value)
