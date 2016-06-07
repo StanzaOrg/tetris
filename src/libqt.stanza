@@ -2,25 +2,6 @@ defpackage qt5 :
    import core
    import collections
 
-;============================================================
-;================== Resource Pool ===========================
-;============================================================
-;public deftype Resource
-;public defmulti free (r:Resource) -> False
-;
-;val RESOURCE-POOL = Vector<Resource>()
-;public defn new-resource<?T> (r:?T&Resource) -> T :
-;   add(RESOURCE-POOL, r)
-;   r
-;   
-;public defn with-resources<?T> (f:() -> ?T) -> T :
-;   val num-resources = length(RESOURCE-POOL)
-;   try :
-;      f()
-;   finally :
-;      while length(RESOURCE-POOL) > num-resources :
-;         free(pop(RESOURCE-POOL))
-
 ;============================================================   
 ;=================== QtWidget ===============================
 ;============================================================

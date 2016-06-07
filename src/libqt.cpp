@@ -62,12 +62,12 @@ extern "C" {
 //============================================================
 //==================== Timer =================================
 //============================================================
-extern "C" void call_function (int func);
-
 StzQtTimer::StzQtTimer(int on_tick){
   callback = on_tick;
   connect(this, SIGNAL(timeout()), this, SLOT(tick()));
 }
+
+extern "C" void call_function (int func);
 
 void StzQtTimer::tick(){
   call_function(callback);
