@@ -92,8 +92,8 @@ defn random-tile () :
 deftype Board
 defmulti rows (b:Board) -> Int
 defmulti cols (b:Board) -> Int
-defmulti reset (b:Board) -> False
 defmulti vis-rows (b:Board) -> Int
+defmulti reset (b:Board) -> False
 defmulti get (b:Board, r:Int, c:Int) -> False|Int
 defmulti active-tile (b:Board) -> False|Tile
 defmulti active-tile-pos (b:Board) -> [Int, Int]
